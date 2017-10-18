@@ -3,6 +3,7 @@ package ru.javaops.masterjava.matrix;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.IntStream;
 
 /**
  * gkislin
@@ -14,6 +15,41 @@ public class MatrixUtil {
     public static int[][] concurrentMultiply(int[][] matrixA, int[][] matrixB, ExecutorService executor) throws InterruptedException, ExecutionException {
         final int matrixSize = matrixA.length;
         final int[][] matrixC = new int[matrixSize][matrixSize];
+
+        final int[] matrA = new int[matrixSize*matrixSize]; // using 1d array instead of 2d gives us +10% speed
+
+        final int[] matrB = new int[matrixSize*matrixSize];
+        final int[] matrC = new int[matrixSize*matrixSize];
+
+        IntStream.range(0, matrixSize).parallel().forEach(i -> { // convert 2d array to 1d
+            System.arraycopy(matrixA[i], 0, matrA, i * matrixSize, matrixSize);
+            System.arraycopy(matrixB[i], 0, matrB, i * matrixSize, matrixSize);
+        });
+
+        IntStream.range(0, matrixSize).parallel().forEach(i -> {
+            final int ii = i*matrixSize;
+            for (int j = 0; j < matrixSize; j++) {
+                int sum = 0;
+                for (int k = 0; k < matrixSize; k++) {
+                    sum += matrA[ii + k] * matrB[k*matrixSize+j];
+                }
+                matrC[ii+j] = sum;
+            }
+        });
+
+        IntStream.range(0, matrixSize).parallel().forEach(i -> { // convert 1d result array to 2d
+            System.arraycopy(matrC, i * matrixSize, matrixC[i], 0, matrixSize);
+        });
+
+//        IntStream.range(0, matrixSize).parallel().forEach(i -> {
+//            for (int j = 0; j < matrixSize; j++) {
+//                int sum = 0;
+//                for (int k = 0; k < matrixSize; k++) {
+//                    sum += matrixA[i][k] * matrixB[k][j];
+//                }
+//                matrixC[i][j] = sum;
+//            }
+//        });
 
         return matrixC;
     }
