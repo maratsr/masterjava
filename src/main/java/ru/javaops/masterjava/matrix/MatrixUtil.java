@@ -12,7 +12,30 @@ import java.util.stream.IntStream;
  */
 public class MatrixUtil {
 
-    // TODO implement parallel multiplication matrixA*matrixB in Parallel streams
+    // multiplication matrixA*matrixB using ForkJoinPool
+    public static int[][] concurrentMultiply3(int[][] matrixA, int[][] matrixB, ExecutorService executor) throws InterruptedException, ExecutionException {
+        final int matrixSize = matrixA.length;
+        final int[][] matrixC = new int[matrixSize][matrixSize];
+        ForkJoinPool forkJoinPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors()-1);
+        forkJoinPool.submit(() ->
+            IntStream.range(0, matrixSize).parallel().forEach(j -> {
+                final int thatColumn[] = new int[matrixSize];
+                for (int k = 0; k < matrixSize; k++) {
+                    thatColumn[k] = matrixB[k][j];
+                }
+                for (int i = 0; i < matrixSize; i++) {
+                    final int thisRow[] = matrixA[i];
+                    int summand = 0;
+                    for (int k = 0; k < matrixSize; k++) {
+                        summand += thisRow[k] * thatColumn[k];
+                    }
+                    matrixC[i][j] = summand;
+                }
+            })).get();
+        return matrixC;
+    }
+
+    // multiplication matrixA*matrixB in Parallel streams
     public static int[][] concurrentMultiply2(int[][] matrixA, int[][] matrixB, ExecutorService executor) throws InterruptedException, ExecutionException {
         final int matrixSize = matrixA.length;
         final int[][] matrixC = new int[matrixSize][matrixSize];
@@ -34,7 +57,7 @@ public class MatrixUtil {
         return matrixC;
     }
 
-    // TODO implement parallel multiplication matrixA*matrixB using executor
+    // multiplication matrixA*matrixB using executor
     public static int[][] concurrentMultiply(int[][] matrixA, int[][] matrixB, ExecutorService executor) throws InterruptedException, ExecutionException {
         final int matrixSize = matrixA.length;
         final int[][] matrixC = new int[matrixSize][matrixSize];
