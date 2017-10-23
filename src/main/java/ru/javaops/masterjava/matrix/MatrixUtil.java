@@ -1,8 +1,9 @@
 package ru.javaops.masterjava.matrix;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.*;
 import java.util.stream.IntStream;
 
 /**
@@ -11,46 +12,53 @@ import java.util.stream.IntStream;
  */
 public class MatrixUtil {
 
-    // TODO implement parallel multiplication matrixA*matrixB
+    // TODO implement parallel multiplication matrixA*matrixB in Parallel streams
+    public static int[][] concurrentMultiply2(int[][] matrixA, int[][] matrixB, ExecutorService executor) throws InterruptedException, ExecutionException {
+        final int matrixSize = matrixA.length;
+        final int[][] matrixC = new int[matrixSize][matrixSize];
+
+        IntStream.range(0, matrixSize).parallel().forEach(j -> {
+            final int thatColumn[] = new int[matrixSize];
+            for (int k = 0; k < matrixSize; k++) {
+                thatColumn[k] = matrixB[k][j];
+            }
+            for (int i = 0; i < matrixSize; i++) {
+                final int thisRow[] = matrixA[i];
+                int summand = 0;
+                for (int k = 0; k < matrixSize; k++) {
+                    summand += thisRow[k] * thatColumn[k];
+                }
+                matrixC[i][j] = summand;
+            }
+        });
+        return matrixC;
+    }
+
+    // TODO implement parallel multiplication matrixA*matrixB using executor
     public static int[][] concurrentMultiply(int[][] matrixA, int[][] matrixB, ExecutorService executor) throws InterruptedException, ExecutionException {
         final int matrixSize = matrixA.length;
         final int[][] matrixC = new int[matrixSize][matrixSize];
 
-        final int[] matrA = new int[matrixSize*matrixSize]; // using 1d array instead of 2d gives us +10% speed
-
-        final int[] matrB = new int[matrixSize*matrixSize];
-        final int[] matrC = new int[matrixSize*matrixSize];
-
-        IntStream.range(0, matrixSize).parallel().forEach(i -> { // convert 2d array to 1d
-            System.arraycopy(matrixA[i], 0, matrA, i * matrixSize, matrixSize);
-            System.arraycopy(matrixB[i], 0, matrB, i * matrixSize, matrixSize);
-        });
-
-        IntStream.range(0, matrixSize).parallel().forEach(i -> {
-            final int ii = i*matrixSize;
-            for (int j = 0; j < matrixSize; j++) {
-                int sum = 0;
-                for (int k = 0; k < matrixSize; k++) {
-                    sum += matrA[ii + k] * matrB[k*matrixSize+j];
-                }
-                matrC[ii+j] = sum;
+        List<Callable<Void>> tasks = new ArrayList<>();
+                for (int j=0;j<matrixSize;j++) {
+                    int finalJ = j;
+                    tasks.add(() -> {
+                    final int thatColumn[] = new int[matrixSize];
+                    for (int k = 0; k < matrixSize; k++) {
+                        thatColumn[k] = matrixB[k][finalJ];
+                    }
+                    for (int i = 0; i < matrixSize; i++) {
+                        final int thisRow[] = matrixA[i];
+                        int summand = 0;
+                        for (int k = 0; k < matrixSize; k++) {
+                            summand += thisRow[k] * thatColumn[k];
+                        }
+                        matrixC[i][finalJ] = summand;
+                    }
+                    return null;
+                });
             }
-        });
-
-        IntStream.range(0, matrixSize).parallel().forEach(i -> { // convert 1d result array to 2d
-            System.arraycopy(matrC, i * matrixSize, matrixC[i], 0, matrixSize);
-        });
-
-//        IntStream.range(0, matrixSize).parallel().forEach(i -> {
-//            for (int j = 0; j < matrixSize; j++) {
-//                int sum = 0;
-//                for (int k = 0; k < matrixSize; k++) {
-//                    sum += matrixA[i][k] * matrixB[k][j];
-//                }
-//                matrixC[i][j] = sum;
-//            }
-//        });
-
+        List<Future<Void>> invokeAll = executor.invokeAll(tasks);
         return matrixC;
     }
 
@@ -59,13 +67,20 @@ public class MatrixUtil {
         final int matrixSize = matrixA.length;
         final int[][] matrixC = new int[matrixSize][matrixSize];
 
-        for (int i = 0; i < matrixSize; i++) {
-            for (int j = 0; j < matrixSize; j++) {
-                int sum = 0;
+        int thatColumn[] = new int[matrixSize];
+
+        for (int j = 0; j < matrixSize; j++) {
+            for (int k = 0; k < matrixSize; k++) {
+                thatColumn[k] = matrixB[k][j];
+            }
+
+            for (int i = 0; i < matrixSize; i++) {
+                int thisRow[] = matrixA[i];
+                int summand = 0;
                 for (int k = 0; k < matrixSize; k++) {
-                    sum += matrixA[i][k] * matrixB[k][j];
+                    summand += thisRow[k] * thatColumn[k];
                 }
-                matrixC[i][j] = sum;
+                matrixC[i][j] = summand;
             }
         }
         return matrixC;
